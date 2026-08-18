@@ -636,7 +636,19 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection } 
                 if (!snap.exists()) return;
                 const data = snap.data();
                 
-                // 1. Handle Room Status
+                // ==========================================
+                // BẢN VÁ LỖI: ĐỒNG BỘ HP Ở CẤP ĐỘ CAO NHẤT
+                // Đảm bảo chạy trước mọi điều kiện data.status
+                // ==========================================
+                if (data.players) {
+                    const enemyId = data.host === userId ? data.guest : data.host;
+                    // Sử dụng toán tử ?? để tránh lỗi số 0 bị hiểu nhầm thành 100
+                    playerHP = data.players[userId]?.hp ?? 100;
+                    enemyHP = data.players[enemyId]?.hp ?? 100;
+                    updateHPUI();
+                }
+
+                // 1. Handle Room Status (Khi mới vào phòng)
                 if (data.status === 'playing' && DOM.pvpLobby.classList.contains('flex')) {
                     // Start Game!
                     DOM.pvpLobby.classList.remove('flex');
@@ -646,28 +658,18 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection } 
                     document.getElementById('enemy-name').innerText = "Đối thủ 🥷";
                     DOM.enemyEl.innerText = "🥷";
                     
-                    // Identify me and enemy
-                    const enemyId = data.host === userId ? data.guest : data.host;
-                    
-                    playerHP = data.players[userId]?.hp || 100;
-                    enemyHP = data.players[enemyId]?.hp || 100;
+                    // (Đã xóa đoạn cập nhật HP cũ ở đây để tránh lặp code)
                     
                     currentWordIndex = data.question.index;
                     currentDistractors = data.question.distractors;
                     
-                    updateHPUI();
                     renderQuestion();
                     showToast("Bắt đầu chiến đấu!");
                 }
                 
-                // 2. Sync during 'playing'
+                // 2. Sync during 'playing' (Khi đang đánh nhau)
                 if (data.status === 'playing') {
-                    const enemyId = data.host === userId ? data.guest : data.host;
-                    
-                    // Update HP silently
-                    playerHP = data.players[userId]?.hp || 100;
-                    enemyHP = data.players[enemyId]?.hp || 100;
-                    updateHPUI();
+                    // (Đã xóa đoạn cập nhật HP cũ ở đây)
 
                     // Check for attacks
                     if (data.lastAttack && data.lastAttack.time > lastHandledAttackTime) {
@@ -676,17 +678,14 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection } 
                         const isUltimate = data.lastAttack.isUltimate;
                         
                         if (isMeAttacking) {
-                            // I attacked (animation already triggered locally normally, but let's ensure it)
                             DOM.playerEl.classList.remove('idle-p');
                             DOM.playerEl.classList.add(isUltimate ? 'anim-ultimate' : 'anim-attack');
                             setTimeout(() => { triggerVFX(isUltimate); DOM.enemyEl.classList.add('anim-hit'); }, 150);
                             setTimeout(() => { DOM.playerEl.classList.remove('anim-attack', 'anim-ultimate'); DOM.playerEl.classList.add('idle-p'); DOM.enemyEl.classList.remove('anim-hit'); }, 800);
                         } else {
-                            // Enemy attacked me
                             DOM.enemyEl.classList.remove('idle-e');
                             DOM.enemyEl.classList.add('anim-attack'); 
                             
-                            // Visual Stun/Hit for me
                             isStunned = true;
                             combo = 0; updateComboUI();
                             DOM.stunOverlay.classList.remove('hidden');
@@ -703,7 +702,6 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection } 
                                 DOM.playerEl.classList.remove('anim-hit');
                             }, 800);
 
-                            // Release stun when new question is ready
                             setTimeout(() => {
                                 isStunned = false;
                                 DOM.stunOverlay.classList.add('hidden');
@@ -722,9 +720,10 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection } 
                     checkWinCondition();
                 }
 
-                // 3. Sync Finished state
+                // 3. Sync Finished state (Khi có người chết)
                 if (data.status === 'finished') {
-                    checkWinCondition(); // Will display based on HP
+                    // Lúc này máu (HP) đã được cập nhật thành 0 ở block đầu tiên nên hàm checkWinCondition() sẽ bắt được sự kiện kết thúc.
+                    checkWinCondition();
                 }
             });
         }
