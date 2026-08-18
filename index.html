@@ -61,14 +61,72 @@
 </head>
 <body class="w-screen h-screen flex items-center justify-center text-white">
 
-    <!-- Game Container -->
     <div id="game-app" class="relative w-full max-w-4xl h-full max-h-[800px] stage-bg rounded-xl overflow-hidden shadow-2xl flex flex-col border-4 border-gray-800">
         
+        <!-- Loading Overlay (Initial Firebase Auth) -->
+        <div id="auth-loading" class="absolute inset-0 z-[60] bg-gray-900 flex flex-col justify-center items-center">
+            <div class="animate-spin text-6xl mb-4">⏳</div>
+            <h2 class="text-2xl font-bold">Đang kết nối máy chủ...</h2>
+        </div>
+
+        <!-- Notification Toast -->
+        <div id="toast-container" class="absolute top-4 left-1/2 transform -translate-x-1/2 z-[70] hidden bg-gray-800 border-2 border-yellow-500 rounded-lg px-6 py-3 shadow-xl">
+            <p id="toast-msg" class="text-lg font-bold text-white"></p>
+        </div>
+
+        <!-- Main Menu Overlay -->
+        <div id="main-menu" class="absolute inset-0 z-50 bg-gray-900/95 flex flex-col justify-center items-center backdrop-blur-md">
+            <h1 class="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-red-500 mb-8 drop-shadow-lg text-center">
+                TuanPhamHSK<br><span class="text-3xl text-white">Đấu Trường HSK</span>
+            </h1>
+            
+            <div class="flex flex-col gap-4 w-64">
+                <button id="btn-pve" class="bg-blue-600 hover:bg-blue-500 border-b-4 border-blue-800 rounded-xl py-4 text-xl font-bold transition-transform active:translate-y-1 active:border-b-0 shadow-lg hidden">
+                    Huấn Luyện (PvE)
+                </button>
+                <button id="btn-pvp" class="bg-red-600 hover:bg-red-500 border-b-4 border-red-800 rounded-xl py-4 text-xl font-bold transition-transform active:translate-y-1 active:border-b-0 shadow-lg hidden">
+                    Đấu Trường (PvP)
+                </button>
+            </div>
+        </div>
+
+        <!-- PvP Lobby Overlay -->
+        <div id="pvp-lobby" class="absolute inset-0 z-50 bg-gray-900/95 hidden flex-col justify-center items-center backdrop-blur-md">
+            <h2 class="text-4xl font-black text-yellow-400 mb-8">PHÒNG CHỜ PvP</h2>
+            
+            <div id="lobby-actions" class="flex flex-col gap-4 w-72">
+                <button id="btn-create-room" class="bg-purple-600 hover:bg-purple-500 border-b-4 border-purple-800 rounded-xl py-4 text-xl font-bold transition-transform active:translate-y-1 active:border-b-0 shadow-lg">
+                    Tạo Phòng Mới
+                </button>
+                <div class="flex gap-2">
+                    <input type="text" id="join-room-code" placeholder="Mã phòng..." class="flex-1 rounded-xl text-black font-bold text-center text-xl uppercase" maxlength="4">
+                    <button id="btn-join-room" class="bg-green-600 hover:bg-green-500 border-b-4 border-green-800 rounded-xl px-4 py-4 text-xl font-bold transition-transform active:translate-y-1 active:border-b-0 shadow-lg">
+                        Vào
+                    </button>
+                </div>
+                <button id="btn-lobby-back" class="mt-4 text-gray-400 underline hover:text-white">Quay lại</button>
+            </div>
+
+            <div id="lobby-waiting" class="hidden flex-col items-center">
+                <p class="text-2xl mb-2">Mã phòng của bạn:</p>
+                <div id="display-room-code" class="text-6xl font-black text-green-400 tracking-widest mb-6 bg-gray-800 px-6 py-2 rounded-xl border-2 border-gray-600"></div>
+                
+                <!-- Khu vực Copy Link Mời -->
+                <div class="flex items-center gap-2 mb-6 bg-gray-800 p-2 rounded-lg border border-gray-600 w-full max-w-sm">
+                    <input type="text" id="share-link-input" readonly class="bg-transparent text-sm text-gray-300 flex-1 outline-none truncate" value="">
+                    <button id="btn-copy-link" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-md text-sm font-bold transition-colors whitespace-nowrap">Copy Link</button>
+                </div>
+                
+                <p class="text-gray-400 mb-8 animate-pulse">Đang chờ đối thủ tham gia...</p>
+                <button id="btn-cancel-room" class="bg-red-600 hover:bg-red-500 px-6 py-2 rounded-full font-bold">Hủy phòng</button>
+            </div>
+        </div>
+
         <header class="flex justify-between items-center p-4 bg-gray-900/60 backdrop-blur-sm z-10">
             <!-- Player HP -->
             <div class="w-2/5">
                 <div class="flex justify-between font-bold text-lg mb-1 text-blue-300">
-                    <span>Học viên 👨‍🎓</span>
+                    <span id="player-name">Học viên 👨‍🎓</span>
                     <span id="player-hp-text">100%</span>
                 </div>
                 <div class="h-6 w-full bg-gray-700 rounded-full border-2 border-gray-900 overflow-hidden">
@@ -83,7 +141,7 @@
             <div class="w-2/5">
                 <div class="flex justify-between font-bold text-lg mb-1 text-red-300">
                     <span id="enemy-hp-text">100%</span>
-                    <span>Boss HSK 🐉</span>
+                    <span id="enemy-name">Boss HSK 🐉</span>
                 </div>
                 <div class="h-6 w-full bg-gray-700 rounded-full border-2 border-gray-900 overflow-hidden flex justify-end">
                     <div id="enemy-hp-bar" class="h-full bg-red-500 hp-bar-inner w-full shadow-[inset_0_0_10px_rgba(255,255,255,0.5)]"></div>
@@ -116,7 +174,7 @@
             <!-- Stun Overlay -->
             <div id="stun-overlay" class="absolute inset-0 bg-red-900/80 backdrop-blur-sm hidden flex flex-col justify-center items-center z-40">
                 <div class="text-6xl mb-2">😵</div>
-                <h2 class="text-3xl font-black text-white drop-shadow-lg">Sai rồi! Choáng 2s</h2>
+                <h2 id="stun-text" class="text-3xl font-black text-white drop-shadow-lg">Sai rồi! Choáng 2s</h2>
             </div>
 
             <!-- Question -->
@@ -136,215 +194,299 @@
         <!-- End Screen -->
         <div id="end-screen" class="absolute inset-0 bg-black/90 hidden flex-col justify-center items-center z-50">
             <h1 id="end-title" class="text-6xl font-black mb-4">YOU WIN!</h1>
-            <button onclick="initGame()" class="bg-blue-600 hover:bg-blue-500 px-8 py-4 rounded-full text-2xl font-bold">Chơi Lại</button>
+            <p id="end-subtitle" class="text-2xl mb-8 text-gray-300"></p>
+            <button id="btn-return-menu" class="bg-blue-600 hover:bg-blue-500 px-8 py-4 rounded-full text-2xl font-bold">Về Màn Hình Chính</button>
         </div>
     </div>
 
-    <script>
-        // 1. Vocabulary Database (Contains radicals that are easily confused)
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+
+        // Vocabulary Database (Updated)
         const vocabulary = [
-            { pinyin: "mā", vi: "Mẹ", hanzi: "妈", distractors: ["吗", "码"] },
-            { pinyin: "gǒu", vi: "Chó", hanzi: "狗", distractors: ["猪", "猫"] },
-            { pinyin: "yǔ", vi: "Ngôn ngữ", hanzi: "语", distractors: ["话", "计"] },
-            { pinyin: "míng", vi: "Sáng, Ngày mai", hanzi: "明", distractors: ["朋", "月"] },
-            { pinyin: "qǐng", vi: "Mời, Xin", hanzi: "请", distractors: ["清", "情"] },
-            { pinyin: "xué", vi: "Học", hanzi: "学", distractors: ["字", "觉"] },
-            { pinyin: "kàn", vi: "Nhìn, Xem", hanzi: "看", distractors: ["着", "目"] },
-            // Bổ sung danh sách từ vựng HSK mới
-            { pinyin: "ài", vi: "yêu, thích", hanzi: "爱" },
-            { pinyin: "bā", vi: "tám (số 8)", hanzi: "八" },
-            { pinyin: "bàba", vi: "bố, cha", hanzi: "爸爸" },
-            { pinyin: "bēizi", vi: "cái cốc, ly, tách", hanzi: "杯子" },
-            { pinyin: "Běijīng", vi: "Bắc Kinh", hanzi: "北京" },
-            { pinyin: "běn", vi: "quyển, cuốn (lượng từ dùng cho sách, vở)", hanzi: "本" },
-            { pinyin: "bú kèqi", vi: "đừng khách sáo, không có chi", hanzi: "不客气" },
-            { pinyin: "bù", vi: "không", hanzi: "不" },
-            { pinyin: "cài", vi: "rau, món ăn, thức ăn", hanzi: "菜" },
-            { pinyin: "chá", vi: "trà, chè", hanzi: "茶" },
-            { pinyin: "chī", vi: "ăn", hanzi: "吃" },
-            { pinyin: "chūzhūchē", vi: "xe taxi", hanzi: "出租车" },
-            { pinyin: "dǎ diànhuà", vi: "gọi điện thoại", hanzi: "打电话" },
-            { pinyin: "dà", vi: "to, lớn", hanzi: "大" },
-            { pinyin: "de", vi: "của (trợ từ sở hữu hoặc định ngữ)", hanzi: "的" },
-            { pinyin: "diǎn", vi: "giờ, điểm", hanzi: "点" },
-            { pinyin: "diànnǎo", vi: "máy tính, máy vi tính", hanzi: "电脑" },
-            { pinyin: "diànshì", vi: "tivi, vô tuyến", hanzi: "电视" },
-            { pinyin: "diànyǐng", vi: "phim, điện ảnh", hanzi: "电影" },
-            { pinyin: "dōngxi", vi: "đồ, đồ đạc, vật phẩm", hanzi: "东西" },
-            { pinyin: "dōu", vi: "đều, đã", hanzi: "都" },
-            { pinyin: "dú", vi: "đọc", hanzi: "读" },
-            { pinyin: "duìbuqǐ", vi: "xin lỗi", hanzi: "对不起" },
-            { pinyin: "duō", vi: "nhiều, bao nhiêu", hanzi: "多" },
-            { pinyin: "duōshao", vi: "bao nhiêu", hanzi: "多少" },
-            { pinyin: "érzi", vi: "con trai", hanzi: "儿子" },
-            { pinyin: "èr", vi: "hai (số 2)", hanzi: "二" },
-            { pinyin: "fàndiàn", vi: "nhà hàng, khách sạn", hanzi: "饭店" },
-            { pinyin: "fēijī", vi: "máy bay", hanzi: "飞机" },
-            { pinyin: "fēnzhōng", vi: "phút", hanzi: "分钟" },
-            { pinyin: "gāoxìng", vi: "vui vẻ, mừng rỡ, phấn khởi", hanzi: "高兴" },
-            { pinyin: "gè", vi: "cái, con (lượng từ phổ biến)", hanzi: "个" },
-            { pinyin: "gōngzuò", vi: "làm việc, công việc", hanzi: "工作" },
-            { pinyin: "Hànyǔ", vi: "tiếng Trung, tiếng Hán", hanzi: "汉语" },
-            { pinyin: "hǎo", vi: "tốt, khỏe, đẹp", hanzi: "好" },
-            { pinyin: "hào", vi: "ngày, số", hanzi: "号" },
-            { pinyin: "hē", vi: "uống", hanzi: "喝" },
-            { pinyin: "hé", vi: "và, với", hanzi: "和" },
-            { pinyin: "hěn", vi: "rất", hanzi: "很" },
-            { pinyin: "hòumiàn", vi: "phía sau, sau", hanzi: "后面" },
-            { pinyin: "huí", vi: "về, trở về", hanzi: "回" },
-            { pinyin: "huì", vi: "biết (qua học tập), sẽ", hanzi: "会" },
-            { pinyin: "jǐ", vi: "mấy, vài", hanzi: "几" },
-            { pinyin: "jiā", vi: "nhà, gia đình", hanzi: "家" },
-            { pinyin: "jiào", vi: "gọi, tên là", hanzi: "叫" },
-            { pinyin: "jīntiān", vi: "hôm nay", hanzi: "今天" },
-            { pinyin: "jiǔ", vi: "chín (số 9)", hanzi: "九" },
-            { pinyin: "kāi", vi: "lái (xe), mở, nở", hanzi: "开" },
-            { pinyin: "kànjiàn", vi: "nhìn thấy, trông thấy", hanzi: "看见" },
-            { pinyin: "kuài", vi: "đồng (đơn vị tiền tệ), miếng, mẩu, cục", hanzi: "块" },
-            { pinyin: "lái", vi: "đến, tới", hanzi: "来" },
-            { pinyin: "lǎoshī", vi: "thầy giáo, cô giáo", hanzi: "老师" },
-            { pinyin: "le", vi: "rồi (trợ từ ngữ khí/biến đổi tình huống)", hanzi: "了" },
-            { pinyin: "lěng", vi: "lạnh", hanzi: "冷" },
-            { pinyin: "lǐ", vi: "trong, bên trong", hanzi: "里" },
-            { pinyin: "líng", vi: "không (số 0)", hanzi: "零" },
-            { pinyin: "liù", vi: "sáu (số 6)", hanzi: "六" },
-            { pinyin: "māma", vi: "mẹ, má", hanzi: "妈妈" },
-            { pinyin: "ma", vi: "không (trợ từ nghi vấn cuối câu)", hanzi: "吗" },
-            { pinyin: "mǎi", vi: "mua", hanzi: "买" },
-            { pinyin: "māo", vi: "con mèo", hanzi: "猫" },
-            { pinyin: "méi guānxi", vi: "không sao đâu, không có chi", hanzi: "没关系" },
-            { pinyin: "méiyǒu", vi: "không có", hanzi: "没有" },
-            { pinyin: "mǐfàn", vi: "cơm", hanzi: "米饭" },
-            { pinyin: "míngzi", vi: "tên", hanzi: "名字" },
-            { pinyin: "míngtiān", vi: "ngày mai", hanzi: "明天" },
-            { pinyin: "nǎ", vi: "nào, cái nào", hanzi: "哪" },
-            { pinyin: "nǎr", vi: "ở đâu, chỗ nào", hanzi: "哪儿" },
-            { pinyin: "nà", vi: "kia, đó, thế thì", hanzi: "那" },
-            { pinyin: "ne", vi: "nhé, nhỉ (trợ từ ngữ khí tỉnh lược hoặc nhấn mạnh)", hanzi: "呢" },
-            { pinyin: "néng", vi: "có thể", hanzi: "能" },
-            { pinyin: "nǐ", vi: "bạn, anh, chị (ngôi thứ hai số ít)", hanzi: "你" },
-            { pinyin: "nín", vi: "ông, bà, ngài (thể lịch kính của 你)", hanzi: "您" },
-            { pinyin: "nǐmen", vi: "các bạn, các anh, các chị", hanzi: "你们" },
-            { pinyin: "nián", vi: "năm", hanzi: "年" },
-            { pinyin: "nǚ'ér", vi: "con gái", hanzi: "女儿" },
-            { pinyin: "péngyou", vi: "bạn, bạn bè", hanzi: "朋友" },
-            { pinyin: "piàoliang", vi: "đẹp, xinh đẹp", hanzi: "漂亮" },
-            { pinyin: "píngguǒ", vi: "quả táo", hanzi: "苹果" },
-            { pinyin: "qī", vi: "bảy (số 7)", hanzi: "七" },
-            { pinyin: "qián", vi: "tiền", hanzi: "钱" },
-            { pinyin: "qiánmiàn", vi: "phía trước, trước", hanzi: "前面" },
-            { pinyin: "qù", vi: "đi, đi đến", hanzi: "去" },
-            { pinyin: "rè", vi: "nóng", hanzi: "热" },
-            { pinyin: "rén", vi: "người", hanzi: "人" },
-            { pinyin: "rènshi", vi: "quen biết, nhận biết", hanzi: "认识" },
-            { pinyin: "sān", vi: "ba (số 3)", hanzi: "三" },
-            { pinyin: "shāngdiàn", vi: "cửa hàng, tiệm", hanzi: "商店" },
-            { pinyin: "shàng", vi: "trên, phía trên, lên", hanzi: "上" },
-            { pinyin: "shàngwǔ", vi: "buổi sáng (trước 12h)", hanzi: "上午" },
-            { pinyin: "shǎo", vi: "ít", hanzi: "少" },
-            { pinyin: "shéi", vi: "ai (nghi vấn từ)", hanzi: "谁" },
-            { pinyin: "shénme", vi: "cái gì, gì", hanzi: "什么" },
-            { pinyin: "shí", vi: "mười (số 10)", hanzi: "十" },
-            { pinyin: "shíhou", vi: "lúc, khi, thời gian", hanzi: "时候" },
-            { pinyin: "shì", vi: "là, đúng", hanzi: "是" },
-            { pinyin: "shū", vi: "sách", hanzi: "书" },
-            { pinyin: "shuǐ", vi: "nước", hanzi: "水" },
-            { pinyin: "shuǐguǒ", vi: "trái cây, hoa quả", hanzi: "水果" },
-            { pinyin: "shuìjiào", vi: "ngủ", hanzi: "睡觉" },
-            { pinyin: "shuō", vi: "nói", hanzi: "说" },
-            { pinyin: "shuōhuà", vi: "nói chuyện, nói", hanzi: "说话" },
-            { pinyin: "sì", vi: "bốn (số 4)", hanzi: "四" },
-            { pinyin: "suì", vi: "tuổi", hanzi: "岁" },
-            { pinyin: "tā", vi: "anh ấy, ông ấy, gã", hanzi: "他" },
-            { pinyin: "tā", vi: "cô ấy, bà ấy, chị ấy", hanzi: "她" },
-            { pinyin: "tài", vi: "quá, lắm", hanzi: "太" },
-            { pinyin: "tiānqì", vi: "thời tiết", hanzi: "天气" },
-            { pinyin: "tīng", vi: "nghe", hanzi: "听" },
-            { pinyin: "tóngxué", vi: "bạn học, bạn cùng lớp", hanzi: "同学" },
-            { pinyin: "wèi", vi: "alo, này", hanzi: "喂" },
-            { pinyin: "wǒ", vi: "tôi, ta, tớ, mình", hanzi: "我" },
-            { pinyin: "wǒmen", vi: "chúng tôi, chúng ta", hanzi: "我们" },
-            { pinyin: "wǔ", vi: "năm (số 5)", hanzi: "五" },
-            { pinyin: "xǐhuan", vi: "thích, yêu thích", hanzi: "喜欢" },
-            { pinyin: "xià", vi: "dưới, phía dưới, xuống", hanzi: "下" },
-            { pinyin: "xiàwǔ", vi: "buổi chiều (từ 12h-18h)", hanzi: "下午" },
-            { pinyin: "xià yǔ", vi: "mưa, rơi mưa", hanzi: "下雨" },
-            { pinyin: "xiānsheng", vi: "ông, ngài, chồng", hanzi: "先生" },
-            { pinyin: "xiànzài", vi: "bây giờ, hiện tại", hanzi: "现在" },
-            { pinyin: "xiǎng", vi: "muốn, nghĩ, nhớ", hanzi: "想" },
-            { pinyin: "xiǎo", vi: "nhỏ, bé", hanzi: "小" },
-            { pinyin: "xiǎojiě", vi: "cô, cô gái, tiểu thư", hanzi: "小姐" },
-            { pinyin: "xiē", vi: "một ít, một vài, những", hanzi: "些" },
-            { pinyin: "xiě", vi: "viết", hanzi: "写" },
-            { pinyin: "xièxie", vi: "cảm ơn", hanzi: "谢谢" },
-            { pinyin: "xīngqī", vi: "tuần, thứ", hanzi: "星期" },
-            { pinyin: "xuésheng", vi: "học sinh, sinh viên", hanzi: "学生" },
-            { pinyin: "xuéxí", vi: "học, học tập", hanzi: "学习" },
-            { pinyin: "xuéxiào", vi: "trường học, trường", hanzi: "学校" },
-            { pinyin: "yī", vi: "một (số 1)", hanzi: "一" },
-            { pinyin: "yīfu", vi: "quần áo, y phục", hanzi: "衣服" },
-            { pinyin: "yīshēng", vi: "bác sĩ", hanzi: "医生" },
-            { pinyin: "yīyuàn", vi: "bệnh viện", hanzi: "医院" },
-            { pinyin: "yǐzi", vi: "cái ghế", hanzi: "椅子" },
-            { pinyin: "yǒu", vi: "có", hanzi: "有" },
-            { pinyin: "yuè", vi: "tháng, mặt trăng", hanzi: "月" },
-            { pinyin: "zàijiàn", vi: "tạm biệt, hẹn gặp lại", hanzi: "再见" },
-            { pinyin: "zài", vi: "ở, tại, đang", hanzi: "在" },
-            { pinyin: "zěnme", vi: "như thế nào, làm sao", hanzi: "怎么" },
-            { pinyin: "zěnmeyàng", vi: "như thế nào, ra sao", hanzi: "怎么样" },
-            { pinyin: "zhè", vi: "đây, này", hanzi: "这" },
-            { pinyin: "Zhōngguó", vi: "Trung Quốc", hanzi: "中国" },
-            { pinyin: "zhōngwǔ", vi: "buổi trưa", hanzi: "中午" },
-            { pinyin: "zhù", vi: "ở, cư trú", hanzi: "住" },
-            { pinyin: "zhuōzi", vi: "cái bàn", hanzi: "桌子" },
-            { pinyin: "zì", vi: "chữ, ký tự", hanzi: "字" },
-            { pinyin: "zuótiān", vi: "hôm qua", hanzi: "昨天" },
-            { pinyin: "zuò", vi: "làm, nấu", hanzi: "做" },
-            { pinyin: "zuò", vi: "ngồi", hanzi: "坐" }
+            { hanzi: "爱", pinyin: "ài", meaning: "yêu, thích" },
+            { hanzi: "八", pinyin: "bā", meaning: "tám (số 8)" },
+            { hanzi: "爸爸", pinyin: "bàba", meaning: "bố, cha" },
+            { hanzi: "杯子", pinyin: "bēizi", meaning: "cái cốc, ly, tách" },
+            { hanzi: "北京", pinyin: "Běijīng", meaning: "Bắc Kinh" },
+            { hanzi: "本", pinyin: "běn", meaning: "quyển, cuốn (lượng từ dùng cho sách, vở)" },
+            { hanzi: "不客气", pinyin: "bú kèqi", meaning: "đừng khách sáo, không có chi" },
+            { hanzi: "不", pinyin: "bù", meaning: "không" },
+            { hanzi: "菜", "pinyin": "cài", meaning: "rau, món ăn, thức ăn" },
+            { hanzi: "茶", "pinyin": "chá", meaning: "trà, chè" },
+            { hanzi: "吃", "pinyin": "chī", meaning: "ăn" },
+            { hanzi: "出租车", "pinyin": "chūzhūchē", meaning: "xe taxi" },
+            { hanzi: "打电话", "pinyin": "dǎ diànhuà", meaning: "gọi điện thoại" },
+            { hanzi: "大", "pinyin": "dà", meaning: "to, lớn" },
+            { hanzi: "的", "pinyin": "de", meaning: "của (trợ từ sở hữu hoặc định ngữ)" },
+            { hanzi: "点", "pinyin": "diǎn", meaning: "giờ, điểm" },
+            { hanzi: "电脑", "pinyin": "diànnǎo", meaning: "máy tính, máy vi tính" },
+            { hanzi: "电视", "pinyin": "diànshì", meaning: "tivi, vô tuyến" },
+            { hanzi: "电影", "pinyin": "diànyǐng", meaning: "phim, điện ảnh" },
+            { hanzi: "东西", "pinyin": "dōngxi", meaning: " đồ, đồ đạc, vật phẩm" },
+            { hanzi: "都", "pinyin": "dōu", meaning: "đều, đã" },
+            { hanzi: "读", "pinyin": "dú", meaning: "đọc" },
+            { hanzi: "对不起", "pinyin": "duìbuqǐ", meaning: "xin lỗi" },
+            { hanzi: "多", "pinyin": "duō", meaning: "nhiều, bao nhiêu" },
+            { hanzi: "多少", "pinyin": "duōshao", meaning: "bao nhiêu" },
+            { hanzi: "儿子", "pinyin": "érzi", meaning: "con trai" },
+            { hanzi: "二", "pinyin": "èr", meaning: "hai (số 2)" },
+            { hanzi: "饭店", "pinyin": "fàndiàn", meaning: "nhà hàng, khách sạn" },
+            { hanzi: "飞机", "pinyin": "fēijī", meaning: "máy bay" },
+            { hanzi: "分钟", "pinyin": "fēnzhōng", meaning: "phút" },
+            { hanzi: "高兴", "pinyin": "gāoxìng", meaning: "vui vẻ, mừng rỡ, phấn khởi" },
+            { hanzi: "个", "pinyin": "gè", meaning: "cái, con (lượng từ phổ biến)" },
+            { hanzi: "工作", "pinyin": "gōngzuò", meaning: "làm việc, công việc" },
+            { hanzi: "狗", "pinyin": "gǒu", meaning: "con chó" },
+            { hanzi: "汉语", "pinyin": "Hànyǔ", meaning: "tiếng Trung, tiếng Hán" },
+            { hanzi: "好", "pinyin": "hǎo", meaning: "tốt, khỏe, đẹp" },
+            { hanzi: "号", "pinyin": "hào", meaning: "ngày, số" },
+            { hanzi: "喝", "pinyin": "hē", meaning: "uống" },
+            { hanzi: "和", "pinyin": "hé", meaning: "và, với" },
+            { hanzi: "很", "pinyin": "hěn", meaning: "rất" },
+            { hanzi: "后面", "pinyin": "hòumiàn", meaning: "phía sau, sau" },
+            { hanzi: "回", "pinyin": "huí", meaning: "về, trở về" },
+            { hanzi: "会", "pinyin": "huì", meaning: "biết (qua học tập), sẽ" },
+            { hanzi: "几", "pinyin": "jǐ", meaning: "mấy, vài" },
+            { hanzi: "家", "pinyin": "jiā", meaning: "nhà, gia đình" },
+            { hanzi: "叫", "pinyin": "jiào", meaning: "gọi, tên là" },
+            { hanzi: "今天", "pinyin": "jīntiān", meaning: "hôm nay" },
+            { hanzi: "九", "pinyin": "jiǔ", meaning: "chín (số 9)" },
+            { hanzi: "开", "pinyin": "kāi", meaning: "lái (xe), mở, nở" },
+            { hanzi: "看", "pinyin": "kàn", meaning: "xem, nhìn, đọc" },
+            { hanzi: "看见", "pinyin": "kànjiàn", meaning: "nhìn thấy, trông thấy" },
+            { hanzi: "块", "pinyin": "kuài", meaning: "đồng (đơn vị tiền tệ), miếng, mẩu, cục" },
+            { hanzi: "来", "pinyin": "lái", meaning: "đến, tới" },
+            { hanzi: "老师", "pinyin": "lǎoshī", meaning: "thầy giáo, cô giáo" },
+            { hanzi: "了", "pinyin": "le", meaning: "rồi (trợ từ ngữ khí/biến đổi tình huống)" },
+            { hanzi: "冷", "pinyin": "lěng", meaning: "lạnh" },
+            { hanzi: "里", "pinyin": "lǐ", meaning: "trong, bên trong" },
+            { hanzi: "零", "pinyin": "líng", meaning: "không (số 0)" },
+            { hanzi: "六", "pinyin": "liù", meaning: "sáu (số 6)" },
+            { hanzi: "妈妈", "pinyin": "māma", meaning: "mẹ, má" },
+            { hanzi: "吗", "pinyin": "ma", meaning: "không (trợ từ nghi vấn cuối câu)" },
+            { hanzi: "买", "pinyin": "mǎi", meaning: "mua" },
+            { hanzi: "猫", "pinyin": "māo", meaning: "con mèo" },
+            { hanzi: "没关系", "pinyin": "méi guānxi", meaning: "không sao đâu, không có chi" },
+            { hanzi: "没有", "pinyin": "méiyǒu", meaning: "không có" },
+            { hanzi: "米饭", "pinyin": "mǐfàn", meaning: "cơm" },
+            { hanzi: "名字", "pinyin": "míngzi", meaning: "tên" },
+            { hanzi: "明天", "pinyin": "míngtiān", meaning: "ngày mai" },
+            { hanzi: "哪", "pinyin": "nǎ", meaning: "nào, cái nào" },
+            { hanzi: "哪儿", "pinyin": "nǎr", meaning: "ở đâu, chỗ nào" },
+            { hanzi: "那", "pinyin": "nà", meaning: "kia, đó, thế thì" },
+            { hanzi: "呢", "pinyin": "ne", meaning: "nhé, nhỉ (trợ từ ngữ khí tỉnh lược hoặc nhấn mạnh)" },
+            { hanzi: "能", "pinyin": "néng", meaning: "có thể" },
+            { hanzi: "你", "pinyin": "nǐ", meaning: "bạn, anh, chị (ngôi thứ hai số ít)" },
+            { hanzi: "您", "pinyin": "nín", meaning: "ông, bà, ngài (thể lịch kính của 你)" },
+            { hanzi: "你们", "pinyin": "nǐmen", meaning: "các bạn, các anh, các chị" },
+            { hanzi: "年", "pinyin": "nián", meaning: "năm" },
+            { hanzi: "女儿", "pinyin": "nǚ'ér", meaning: "con gái" },
+            { hanzi: "朋友", "pinyin": "péngyou", meaning: "bạn, bạn bè" },
+            { hanzi: "漂亮", "pinyin": "piàoliang", meaning: "đẹp, xinh đẹp" },
+            { hanzi: "苹果", "pinyin": "píngguǒ", meaning: "quả táo" },
+            { hanzi: "七", "pinyin": "qī", meaning: "bảy (số 7)" },
+            { hanzi: "钱", "pinyin": "qián", meaning: "tiền" },
+            { hanzi: "前面", "pinyin": "qiánmiàn", meaning: "phía trước, trước" },
+            { hanzi: "请", "pinyin": "qǐng", meaning: "mời, xin, vui lòng" },
+            { hanzi: "去", "pinyin": "qù", meaning: "đi, đi đến" },
+            { hanzi: "热", "pinyin": "rè", meaning: "nóng" },
+            { hanzi: "人", "pinyin": "rén", meaning: "người" },
+            { hanzi: "认识", "pinyin": "rènshi", meaning: "quen biết, nhận biết" },
+            { hanzi: "三", "pinyin": "sān", meaning: "ba (số 3)" },
+            { hanzi: "商店", "pinyin": "shāngdiàn", meaning: "cửa hàng, tiệm" },
+            { hanzi: "上", "pinyin": "shàng", meaning: "trên, phía trên, lên" },
+            { hanzi: "上午", "pinyin": "shàngwǔ", meaning: "buổi sáng (trước 12h)" },
+            { hanzi: "少", "pinyin": "shǎo", meaning: "ít" },
+            { hanzi: "谁", "pinyin": "shéi", meaning: "ai (nghi vấn từ)" },
+            { hanzi: "什么", "pinyin": "shénme", meaning: "cái gì, gì" },
+            { hanzi: "十", "pinyin": "shí", meaning: "mười (số 10)" },
+            { hanzi: "时候", "pinyin": "shíhou", meaning: "lúc, khi, thời gian" },
+            { hanzi: "是", "pinyin": "shì", meaning: "là, đúng" },
+            { hanzi: "书", "pinyin": "shū", meaning: "sách" },
+            { hanzi: "水", "pinyin": "shuǐ", meaning: "nước" },
+            { hanzi: "水果", "pinyin": "shuǐguǒ", meaning: "trái cây, hoa quả" },
+            { hanzi: "睡觉", "pinyin": "shuìjiào", meaning: "ngủ" },
+            { hanzi: "说", "pinyin": "shuō", meaning: "nói" },
+            { hanzi: "说话", "pinyin": "shuōhuà", meaning: "nói chuyện, nói" },
+            { hanzi: "四", "pinyin": "sì", meaning: "bốn (số 4)" },
+            { hanzi: "岁", "pinyin": "suì", meaning: "tuổi" },
+            { hanzi: "他", "pinyin": "tā", meaning: "anh ấy, ông ấy, gã (ngôi thứ ba số ít nam)" },
+            { hanzi: "她", "pinyin": "tā", meaning: "cô ấy, bà ấy, chị ấy (ngôi thứ ba số ít nữ)" },
+            { hanzi: "太", "pinyin": "tài", meaning: "quá, lắm" },
+            { hanzi: "天气", "pinyin": "tiānqì", meaning: "thời tiết" },
+            { hanzi: "听", "pinyin": "tīng", meaning: "nghe" },
+            { hanzi: "同学", "pinyin": "tóngxué", meaning: "bạn học, bạn cùng lớp" },
+            { hanzi: "喂", "pinyin": "wèi", meaning: "alo, này (dùng khi nghe điện thoại)" },
+            { hanzi: "我", "pinyin": "wǒ", meaning: "tôi, ta, tớ, mình (ngôi thứ nhất số ít)" },
+            { hanzi: "我们", "pinyin": "wǒmen", meaning: "chúng tôi, chúng ta" },
+            { hanzi: "五", "pinyin": "wǔ", meaning: "năm (số 5)" },
+            { hanzi: "喜欢", "pinyin": "xǐhuan", meaning: "thích, yêu thích" },
+            { hanzi: "下", "pinyin": "xià", meaning: "dưới, phía dưới, xuống" },
+            { hanzi: "下午", "pinyin": "xiàwǔ", meaning: "buổi chiều (từ 12h-18h)" },
+            { hanzi: "下雨", "pinyin": "xià yǔ", meaning: "mưa, rơi mưa" },
+            { hanzi: "先生", "pinyin": "xiānsheng", meaning: "ông, ngài, chồng" },
+            { hanzi: "现在", "pinyin": "xiànzài", meaning: "bây giờ, hiện tại" },
+            { hanzi: "想", "pinyin": "xiǎng", meaning: "muốn, nghĩ, nhớ" },
+            { hanzi: "小", "pinyin": "xiǎo", meaning: "nhỏ, bé" },
+            { hanzi: "小姐", "pinyin": "xiǎojiě", meaning: "cô, cô gái, tiểu thư" },
+            { hanzi: "些", "pinyin": "xiē", meaning: "một ít, một vài, những (lượng từ số nhiều)" },
+            { hanzi: "写", "pinyin": "xiě", meaning: "viết" },
+            { hanzi: "谢谢", "pinyin": "xièxie", meaning: "cảm ơn" },
+            { hanzi: "星期", "pinyin": "xīngqī", meaning: "tuần, thứ" },
+            { hanzi: "学生", "pinyin": "xuésheng", meaning: "học sinh, sinh viên" },
+            { hanzi: "学习", "pinyin": "xuéxí", meaning: "học, học tập" },
+            { hanzi: "学校", "pinyin": "xuéxiào", meaning: "trường học, trường" },
+            { hanzi: "一", "pinyin": "yī", meaning: "một (số 1)" },
+            { hanzi: "衣服", "pinyin": "yīfu", "meaning": "quần áo, y phục" },
+            { hanzi: "医生", "pinyin": "yīshēng", meaning: "bác sĩ" },
+            { hanzi: "医院", "pinyin": "yīyuàn", meaning: "bệnh viện" },
+            { hanzi: "椅子", "pinyin": "yǐzi", meaning: "cái ghế" },
+            { hanzi: "有", "pinyin": "yǒu", meaning: "có" },
+            { hanzi: "月", "pinyin": "yuè", meaning: "tháng, mặt trăng" },
+            { hanzi: "再见", "pinyin": "zàijiàn", meaning: "tạm biệt, hẹn gặp lại" },
+            { hanzi: "在", "pinyin": "zài", meaning: "ở, tại, đang (động từ/giới từ/phó từ)" },
+            { hanzi: "怎么", "pinyin": "zěnme", meaning: "như thế nào, làm sao, thế nào" },
+            { hanzi: "怎么样", "pinyin": "zěnmeyàng", meaning: "như thế nào, ra sao" },
+            { hanzi: "这", "pinyin": "zhè", meaning: "đây, này" },
+            { hanzi: "中国", "pinyin": "Zhōngguó", meaning: "Trung Quốc" },
+            { hanzi: "中午", "pinyin": "zhōngwǔ", meaning: "buổi trưa (khoảng 12h-13h)" },
+            { hanzi: "住", "pinyin": "zhù", meaning: "ở, cư trú" },
+            { hanzi: "桌子", "pinyin": "zhuōzi", meaning: "cái bàn" },
+            { hanzi: "字", "pinyin": "zì", meaning: "chữ, ký tự, tự" },
+            { hanzi: "昨天", "pinyin": "zuótiān", meaning: "hôm qua" },
+            { hanzi: "做", "pinyin": "zuò", meaning: "làm, nấu" },
+            { hanzi: "坐", "pinyin": "zuò", meaning: "ngồi" }
         ];
 
-        // 2. State Variables
+        // Firebase Configuration
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-hanzi-app';
+        const firebaseConfig = {
+    apiKey: "AIzaSyA1FkBMEVYGjC9T5Gk99oXLr_FouubLTL4",
+    authDomain: "tuanphamhsk.firebaseapp.com",
+    projectId: "tuanphamhsk",
+    storageBucket: "tuanphamhsk.firebasestorage.app",
+    messagingSenderId: "132751488290",
+    appId: "1:132751488290:web:188265f43c1774489c617b",
+    measurementId: "G-YLH1XKEWKH"
+        };
+        const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        // Game State Variables
+        let userId = null;
+        let gameMode = null; // 'pve' or 'pvp'
+        let currentRoomCode = null;
+        let unsubscribeRoom = null;
+        
         let playerHP = 100;
         let enemyHP = 100;
         let combo = 0;
-        let currentWord = null;
+        let currentWordIndex = -1;
+        let currentDistractors = [];
         let isStunned = false;
         let isGameOver = false;
 
+        let lastHandledAttackTime = 0; // To prevent double animation in PvP
+
         // DOM Elements
-        const playerEl = document.getElementById('player');
-        const enemyEl = document.getElementById('enemy');
-        const playerHPBar = document.getElementById('player-hp-bar');
-        const enemyHPBar = document.getElementById('enemy-hp-bar');
-        const vfxEl = document.getElementById('vfx');
-        const comboNodes = [document.getElementById('combo-1'), document.getElementById('combo-2'), document.getElementById('combo-3')];
-        const comboText = document.getElementById('combo-text');
-        const stunOverlay = document.getElementById('stun-overlay');
-        const btns = document.querySelectorAll('.answer-btn');
+        const DOM = {
+            authLoading: document.getElementById('auth-loading'),
+            mainMenu: document.getElementById('main-menu'),
+            pvpLobby: document.getElementById('pvp-lobby'),
+            lobbyActions: document.getElementById('lobby-actions'),
+            lobbyWaiting: document.getElementById('lobby-waiting'),
+            endScreen: document.getElementById('end-screen'),
+            playerEl: document.getElementById('player'),
+            enemyEl: document.getElementById('enemy'),
+            playerHPBar: document.getElementById('player-hp-bar'),
+            enemyHPBar: document.getElementById('enemy-hp-bar'),
+            vfxEl: document.getElementById('vfx'),
+            comboNodes: [document.getElementById('combo-1'), document.getElementById('combo-2'), document.getElementById('combo-3')],
+            comboText: document.getElementById('combo-text'),
+            stunOverlay: document.getElementById('stun-overlay'),
+            btns: document.querySelectorAll('.answer-btn')
+        };
+
+        function showToast(msg) {
+            const t = document.getElementById('toast-container');
+            document.getElementById('toast-msg').innerText = msg;
+            t.classList.remove('hidden');
+            setTimeout(() => t.classList.add('hidden'), 3000);
+        }
 
         function playTTS(text) {
-            // Using Web Speech API for TTS
             if ('speechSynthesis' in window) {
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'zh-CN';
-                utterance.rate = 1;
-                window.speechSynthesis.cancel(); // Stop any ongoing speech
+                window.speechSynthesis.cancel();
                 window.speechSynthesis.speak(utterance);
             }
         }
 
+        function generateRandomCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            return Array.from({length: 4}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+        }
+
+        function getRandomQuestionData() {
+            const index = Math.floor(Math.random() * vocabulary.length);
+            let distractors = [];
+            let safetyCounter = 0;
+            while (distractors.length < 2 && safetyCounter < 100) {
+                let randomVocab = vocabulary[Math.floor(Math.random() * vocabulary.length)];
+                if (randomVocab.hanzi !== vocabulary[index].hanzi && !distractors.includes(randomVocab.hanzi)) {
+                    distractors.push(randomVocab.hanzi);
+                }
+                safetyCounter++;
+            }
+            return { index, distractors };
+        }
+
+        async function initAuth() {
+            try {
+                if (authToken) {
+                    await signInWithCustomToken(auth, authToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                userId = auth.currentUser.uid;
+                DOM.authLoading.classList.add('hidden');
+                document.getElementById('btn-pve').classList.remove('hidden');
+                document.getElementById('btn-pvp').classList.remove('hidden');
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                const inviteCode = urlParams.get('room');
+                if (inviteCode && inviteCode.length === 4) {
+                    gameMode = 'pvp';
+                    DOM.mainMenu.classList.add('hidden');
+                    DOM.pvpLobby.classList.remove('hidden');
+                    DOM.pvpLobby.classList.add('flex');
+                    document.getElementById('join-room-code').value = inviteCode;
+                    showToast("Đã nhận link mời! Hãy ấn 'Vào' để tham gia.");
+                }
+
+            } catch (e) {
+                console.error("Auth Error", e);
+                DOM.authLoading.innerHTML = '<h2 class="text-red-500 text-xl font-bold">Lỗi kết nối máy chủ. Vui lòng tải lại trang.</h2>';
+            }
+        }
+
         function updateHPUI() {
-            playerHPBar.style.width = `${Math.max(0, playerHP)}%`;
-            enemyHPBar.style.width = `${Math.max(0, enemyHP)}%`;
+            DOM.playerHPBar.style.width = `${Math.max(0, playerHP)}%`;
+            DOM.enemyHPBar.style.width = `${Math.max(0, enemyHP)}%`;
             document.getElementById('player-hp-text').innerText = `${Math.max(0, playerHP)}%`;
             document.getElementById('enemy-hp-text').innerText = `${Math.max(0, enemyHP)}%`;
-
-            if(playerHP < 30) playerHPBar.style.backgroundColor = '#ef4444'; // Red
-            else playerHPBar.style.backgroundColor = '#22c55e'; // Green
+            DOM.playerHPBar.style.backgroundColor = playerHP < 30 ? '#ef4444' : '#22c55e';
         }
 
         function updateComboUI() {
-            comboNodes.forEach((node, index) => {
+            DOM.comboNodes.forEach((node, index) => {
                 if (index < combo) {
                     node.classList.remove('bg-gray-800');
                     node.classList.add('bg-yellow-400', 'shadow-[0_0_15px_yellow]');
@@ -353,163 +495,437 @@
                     node.classList.remove('bg-yellow-400', 'shadow-[0_0_15px_yellow]');
                 }
             });
-
-            if (combo >= 3) {
-                comboText.classList.remove('hidden');
-                comboText.classList.add('animate-pulse');
-            } else {
-                comboText.classList.add('hidden');
-                comboText.classList.remove('animate-pulse');
-            }
+            if (combo >= 3) DOM.comboText.classList.remove('hidden');
+            else DOM.comboText.classList.add('hidden');
         }
 
-        function loadNextQuestion() {
-            if (isGameOver) return;
+        function renderQuestion() {
+            if (isGameOver || currentWordIndex === -1) return;
+            const word = vocabulary[currentWordIndex];
             
-            // Pick random word
-            currentWord = vocabulary[Math.floor(Math.random() * vocabulary.length)];
-            
-            // Update UI
-            document.getElementById('question-pinyin').innerText = currentWord.pinyin;
-            document.getElementById('question-vi').innerText = currentWord.vi;
+            document.getElementById('question-pinyin').innerText = word.pinyin;
+            document.getElementById('question-vi').innerText = word.meaning;
 
-            // Prepare answers - Generate random distractors if not explicitly defined
-            let distractors = currentWord.distractors;
-            if (!distractors || distractors.length < 2) {
-                distractors = [];
-                let safetyCounter = 0;
-                while (distractors.length < 2 && safetyCounter < 100) {
-                    let randomVocab = vocabulary[Math.floor(Math.random() * vocabulary.length)];
-                    // Đảm bảo không trùng với đáp án đúng và không trùng với distractor đã chọn
-                    if (randomVocab.hanzi !== currentWord.hanzi && !distractors.includes(randomVocab.hanzi)) {
-                        distractors.push(randomVocab.hanzi);
-                    }
-                    safetyCounter++;
-                }
-            }
+            let answers = [word.hanzi, ...currentDistractors];
+            // Sort to randomize placement predictably based on alphabetical order to keep it consistent between clients, 
+            // or we could shuffle and store shuffle order. For simplicity, just sort.
+            answers.sort(); 
 
-            let answers = [currentWord.hanzi, ...distractors];
-            // Shuffle answers
-            answers.sort(() => Math.random() - 0.5);
-
-            // Assign to buttons
-            btns.forEach((btn, idx) => {
+            DOM.btns.forEach((btn, idx) => {
                 btn.innerText = answers[idx];
-                btn.onclick = () => handleAnswer(answers[idx], btn);
+                btn.classList.replace('bg-green-600', 'bg-gray-700');
+                btn.classList.replace('bg-red-600', 'bg-gray-700');
             });
         }
 
         function triggerVFX(isUltimate) {
-            vfxEl.classList.remove('run-slash');
-            void vfxEl.offsetWidth; // trigger reflow
-            vfxEl.innerText = isUltimate ? '🐉🔥' : '💥';
-            vfxEl.style.fontSize = isUltimate ? '150px' : '100px';
-            vfxEl.classList.add('run-slash');
+            DOM.vfxEl.classList.remove('run-slash');
+            void DOM.vfxEl.offsetWidth; // trigger reflow
+            DOM.vfxEl.innerText = isUltimate ? '🐉🔥' : '💥';
+            DOM.vfxEl.style.fontSize = isUltimate ? '150px' : '100px';
+            DOM.vfxEl.classList.add('run-slash');
         }
 
         function checkWinCondition() {
             if (enemyHP <= 0 || playerHP <= 0) {
                 isGameOver = true;
-                const endScreen = document.getElementById('end-screen');
-                const endTitle = document.getElementById('end-title');
-                endScreen.classList.remove('hidden');
-                endScreen.classList.add('flex');
+                DOM.endScreen.classList.remove('hidden');
+                DOM.endScreen.classList.add('flex');
                 
-                if (enemyHP <= 0) {
+                const endTitle = document.getElementById('end-title');
+                const endSub = document.getElementById('end-subtitle');
+                
+                if (playerHP > 0 && enemyHP <= 0) {
                     endTitle.innerText = "CHIẾN THẮNG! 🎉";
                     endTitle.className = "text-6xl font-black mb-4 text-green-400";
-                } else {
+                    endSub.innerText = gameMode === 'pvp' ? "Bạn đã hạ gục đối thủ!" : "Bạn đã đánh bại Boss HSK!";
+                } else if (playerHP <= 0 && enemyHP > 0) {
                     endTitle.innerText = "THẤT BẠI 💀";
                     endTitle.className = "text-6xl font-black mb-4 text-red-500";
+                    endSub.innerText = gameMode === 'pvp' ? "Đối thủ quá nhanh!" : "Boss HSK đã chiến thắng!";
+                } else {
+                    endTitle.innerText = "HÒA NHAU! 🤝";
+                    endTitle.className = "text-6xl font-black mb-4 text-yellow-400";
+                    endSub.innerText = "Trận đấu cân sức!";
                 }
             }
         }
 
-        function handleAnswer(selectedHanzi, btnElement) {
+        function getRoomRef(code) {
+            return doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'), code);
+        }
+
+        async function createPvPRoom() {
+            if (!userId) return;
+            const code = generateRandomCode();
+            currentRoomCode = code;
+            
+            const initQ = getRandomQuestionData();
+            
+            const roomData = {
+                status: 'waiting',
+                host: userId,
+                guest: null,
+                players: {
+                    [userId]: { hp: 100 }
+                },
+                question: {
+                    index: initQ.index,
+                    distractors: initQ.distractors
+                },
+                lastAttack: {
+                    attacker: null,
+                    time: 0,
+                    isUltimate: false
+                },
+                winner: null
+            };
+
+            await setDoc(getRoomRef(code), roomData);
+            
+            DOM.lobbyActions.classList.add('hidden');
+            DOM.lobbyWaiting.classList.remove('hidden');
+            DOM.lobbyWaiting.classList.add('flex');
+            document.getElementById('display-room-code').innerText = code;
+            
+            // Xử lý URL an toàn cho các môi trường (kể cả Sandbox/Iframe)
+            let currentUrl = window.location.href.split('?')[0];
+            if (currentUrl.includes('about:srcdoc') || currentUrl.startsWith('blob:')) {
+                // Đang ở trong môi trường Preview của AI
+                document.getElementById('share-link-input').value = "Môi trường giả lập: Hãy nhập tay mã " + code;
+            } else {
+                // Đang ở trên host thật (Vercel, Netlify, Github Pages...)
+                const shareUrl = currentUrl + '?room=' + code;
+                document.getElementById('share-link-input').value = shareUrl;
+            }
+
+            listenToRoom(code);
+        }
+
+        async function joinPvPRoom(code) {
+            if (!userId) return;
+            if (code.length !== 4) return showToast("Mã phòng không hợp lệ!");
+            
+            const roomRef = getRoomRef(code);
+            const snap = await getDoc(roomRef);
+            
+            if (!snap.exists()) {
+                return showToast("Phòng không tồn tại!");
+            }
+            
+            const data = snap.data();
+            if (data.status !== 'waiting') {
+                return showToast("Phòng đang diễn ra hoặc đã kết thúc!");
+            }
+
+            // Update room to playing
+            await updateDoc(roomRef, {
+                status: 'playing',
+                guest: userId,
+                [`players.${userId}`]: { hp: 100 }
+            });
+
+            currentRoomCode = code;
+            listenToRoom(code);
+        }
+
+        function listenToRoom(code) {
+            if (unsubscribeRoom) unsubscribeRoom();
+            
+            unsubscribeRoom = onSnapshot(getRoomRef(code), (snap) => {
+                if (!snap.exists()) return;
+                const data = snap.data();
+                
+                // 1. Handle Room Status
+                if (data.status === 'playing' && DOM.pvpLobby.classList.contains('flex')) {
+                    // Start Game!
+                    DOM.pvpLobby.classList.remove('flex');
+                    DOM.pvpLobby.classList.add('hidden');
+                    DOM.mainMenu.classList.add('hidden');
+                    
+                    document.getElementById('enemy-name').innerText = "Đối thủ 🥷";
+                    DOM.enemyEl.innerText = "🥷";
+                    
+                    // Identify me and enemy
+                    const enemyId = data.host === userId ? data.guest : data.host;
+                    
+                    playerHP = data.players[userId]?.hp || 100;
+                    enemyHP = data.players[enemyId]?.hp || 100;
+                    
+                    currentWordIndex = data.question.index;
+                    currentDistractors = data.question.distractors;
+                    
+                    updateHPUI();
+                    renderQuestion();
+                    showToast("Bắt đầu chiến đấu!");
+                }
+                
+                // 2. Sync during 'playing'
+                if (data.status === 'playing') {
+                    const enemyId = data.host === userId ? data.guest : data.host;
+                    
+                    // Update HP silently
+                    playerHP = data.players[userId]?.hp || 100;
+                    enemyHP = data.players[enemyId]?.hp || 100;
+                    updateHPUI();
+
+                    // Check for attacks
+                    if (data.lastAttack && data.lastAttack.time > lastHandledAttackTime) {
+                        lastHandledAttackTime = data.lastAttack.time;
+                        const isMeAttacking = data.lastAttack.attacker === userId;
+                        const isUltimate = data.lastAttack.isUltimate;
+                        
+                        if (isMeAttacking) {
+                            // I attacked (animation already triggered locally normally, but let's ensure it)
+                            DOM.playerEl.classList.remove('idle-p');
+                            DOM.playerEl.classList.add(isUltimate ? 'anim-ultimate' : 'anim-attack');
+                            setTimeout(() => { triggerVFX(isUltimate); DOM.enemyEl.classList.add('anim-hit'); }, 150);
+                            setTimeout(() => { DOM.playerEl.classList.remove('anim-attack', 'anim-ultimate'); DOM.playerEl.classList.add('idle-p'); DOM.enemyEl.classList.remove('anim-hit'); }, 800);
+                        } else {
+                            // Enemy attacked me
+                            DOM.enemyEl.classList.remove('idle-e');
+                            DOM.enemyEl.classList.add('anim-attack'); 
+                            
+                            // Visual Stun/Hit for me
+                            isStunned = true;
+                            combo = 0; updateComboUI();
+                            DOM.stunOverlay.classList.remove('hidden');
+                            document.getElementById('stun-text').innerText = "Đối thủ quá nhanh!";
+
+                            setTimeout(() => { 
+                                triggerVFX(isUltimate); 
+                                DOM.playerEl.classList.add('anim-hit'); 
+                            }, 150);
+                            
+                            setTimeout(() => { 
+                                DOM.enemyEl.classList.remove('anim-attack'); 
+                                DOM.enemyEl.classList.add('idle-e'); 
+                                DOM.playerEl.classList.remove('anim-hit');
+                            }, 800);
+
+                            // Release stun when new question is ready
+                            setTimeout(() => {
+                                isStunned = false;
+                                DOM.stunOverlay.classList.add('hidden');
+                                document.getElementById('stun-text').innerText = "Sai rồi! Choáng 2s";
+                            }, 1500);
+                        }
+                    }
+
+                    // Sync Question if changed
+                    if (data.question.index !== currentWordIndex) {
+                        currentWordIndex = data.question.index;
+                        currentDistractors = data.question.distractors;
+                        renderQuestion();
+                    }
+
+                    checkWinCondition();
+                }
+
+                // 3. Sync Finished state
+                if (data.status === 'finished') {
+                    checkWinCondition(); // Will display based on HP
+                }
+            });
+        }
+
+        async function handleAnswerSelection(selectedText, btnElement) {
             if (isStunned || isGameOver) return;
 
-            if (selectedHanzi === currentWord.hanzi) {
-                // Correct Answer
-                playTTS(currentWord.hanzi);
+            const correctWord = vocabulary[currentWordIndex];
+            
+            if (selectedText === correctWord.hanzi) {
+                // Correct!
+                playTTS(correctWord.hanzi);
                 combo++;
                 let isUltimate = combo >= 3;
                 let damage = isUltimate ? 20 : 10;
-
-                // Visuals for correct
+                if (isUltimate) combo = 0;
+                
+                updateComboUI();
                 btnElement.classList.replace('bg-gray-700', 'bg-green-600');
-                
-                // Attack Animation
-                playerEl.classList.remove('idle-p');
-                playerEl.classList.add(isUltimate ? 'anim-ultimate' : 'anim-attack');
-                
-                setTimeout(() => {
-                    triggerVFX(isUltimate);
-                    enemyEl.classList.remove('idle-e');
-                    enemyEl.classList.add('anim-hit');
-                    enemyHP -= damage;
-                    updateHPUI();
+
+                if (gameMode === 'pve') {
+                    // Local PvE logic
+                    DOM.playerEl.classList.remove('idle-p');
+                    DOM.playerEl.classList.add(isUltimate ? 'anim-ultimate' : 'anim-attack');
+                    setTimeout(() => {
+                        triggerVFX(isUltimate);
+                        DOM.enemyEl.classList.add('anim-hit');
+                        enemyHP -= damage;
+                        updateHPUI();
+                        checkWinCondition();
+                    }, 150);
                     
                     setTimeout(() => {
-                        enemyEl.classList.remove('anim-hit');
-                        enemyEl.classList.add('idle-e');
-                        checkWinCondition();
-                    }, 400);
+                        DOM.playerEl.classList.remove('anim-attack', 'anim-ultimate');
+                        DOM.playerEl.classList.add('idle-p');
+                        DOM.enemyEl.classList.remove('anim-hit');
+                        
+                        // Load next PvE question
+                        const nextQ = getRandomQuestionData();
+                        currentWordIndex = nextQ.index;
+                        currentDistractors = nextQ.distractors;
+                        renderQuestion();
+                    }, 800);
+                } else if (gameMode === 'pvp') {
+                    // PvP Logic: Update Server
+                    const enemyId = Object.keys(playerHP === 100 ? {} : {}).length; // Hacky way, get enemyId properly
+                    
+                    if(!currentRoomCode) return;
+                    
+                    // We optimistically trigger local anim, server sync handles the rest
+                    const roomRef = getRoomRef(currentRoomCode);
+                    const nextQ = getRandomQuestionData();
+                    
+                    // We must read the latest HP or just decrement server-side, but standard updateDoc requires explicit value.
+                    // To keep it simple without transactions, we trust local `enemyHP`.
+                    const newEnemyHP = Math.max(0, enemyHP - damage);
+                    
+                    // Determine enemy id based on host/guest via getDoc might be slow, so we rely on snapshot state
+                    // We know if we are updating, we update the OTHER player's hp field.
+                    // Wait, Firestore update paths with dynamic keys need computed properties.
+                    // Let's fetch snap quickly to get who is who.
+                    const snap = await getDoc(roomRef);
+                    const rData = snap.data();
+                    const eId = rData.host === userId ? rData.guest : rData.host;
+                    
+                    let updates = {
+                        [`players.${eId}.hp`]: newEnemyHP,
+                        lastAttack: {
+                            attacker: userId,
+                            time: Date.now(),
+                            isUltimate: isUltimate
+                        },
+                        question: {
+                            index: nextQ.index,
+                            distractors: nextQ.distractors
+                        }
+                    };
 
-                    // Reset combo if ultimate used
-                    if (isUltimate) combo = 0;
-                    updateComboUI();
+                    if (newEnemyHP <= 0) {
+                        updates.status = 'finished';
+                        updates.winner = userId;
+                    }
 
-                }, isUltimate ? 300 : 150); // delay impact based on anim length
-
-                // Restore idle and load next question
-                setTimeout(() => {
-                    playerEl.classList.remove('anim-attack', 'anim-ultimate');
-                    playerEl.classList.add('idle-p');
-                    btnElement.classList.replace('bg-green-600', 'bg-gray-700');
-                    loadNextQuestion();
-                }, 800);
-
+                    await updateDoc(roomRef, updates);
+                }
             } else {
-                // Wrong Answer (Stun Mechanism)
+                // Wrong! Local Stun
                 isStunned = true;
-                combo = 0;
-                updateComboUI();
-                
-                // Visuals for wrong
+                combo = 0; updateComboUI();
                 btnElement.classList.replace('bg-gray-700', 'bg-red-600');
-                playerEl.classList.remove('idle-p');
-                playerEl.classList.add('anim-stun');
-                stunOverlay.classList.remove('hidden');
+                DOM.playerEl.classList.remove('idle-p');
+                DOM.playerEl.classList.add('anim-stun');
+                DOM.stunOverlay.classList.remove('hidden');
 
                 setTimeout(() => {
                     isStunned = false;
-                    playerEl.classList.remove('anim-stun');
-                    playerEl.classList.add('idle-p');
-                    stunOverlay.classList.add('hidden');
+                    DOM.playerEl.classList.remove('anim-stun');
+                    DOM.playerEl.classList.add('idle-p');
+                    DOM.stunOverlay.classList.add('hidden');
                     btnElement.classList.replace('bg-red-600', 'bg-gray-700');
-                    loadNextQuestion(); // Refresh question to prevent guessing
+                    
+                    if (gameMode === 'pve') {
+                        const nextQ = getRandomQuestionData();
+                        currentWordIndex = nextQ.index;
+                        currentDistractors = nextQ.distractors;
+                        renderQuestion();
+                    }
                 }, 2000);
             }
         }
 
-        // Initialize Game
-        function initGame() {
-            playerHP = 100;
-            enemyHP = 100;
-            combo = 0;
-            isStunned = false;
-            isGameOver = false;
-            
-            updateHPUI();
-            updateComboUI();
-            document.getElementById('end-screen').classList.add('hidden');
-            document.getElementById('end-screen').classList.remove('flex');
-            
-            loadNextQuestion();
-        }
+        DOM.btns.forEach(btn => {
+            btn.addEventListener('click', (e) => handleAnswerSelection(e.target.innerText, e.target));
+        });
 
-        // Start
-        window.onload = initGame;
+        document.getElementById('btn-pve').addEventListener('click', () => {
+            gameMode = 'pve';
+            DOM.mainMenu.classList.add('hidden');
+            document.getElementById('enemy-name').innerText = "Boss HSK 🐉";
+            DOM.enemyEl.innerText = "🐉";
+            
+            // Init Game locally
+            playerHP = 100; enemyHP = 100; combo = 0; isGameOver = false; isStunned = false;
+            updateHPUI(); updateComboUI();
+            
+            const initQ = getRandomQuestionData();
+            currentWordIndex = initQ.index;
+            currentDistractors = initQ.distractors;
+            renderQuestion();
+        });
+
+        document.getElementById('btn-pvp').addEventListener('click', () => {
+            if(!userId) return showToast("Vui lòng đợi kết nối máy chủ!");
+            gameMode = 'pvp';
+            DOM.pvpLobby.classList.remove('hidden');
+            DOM.pvpLobby.classList.add('flex');
+            DOM.lobbyActions.classList.remove('hidden');
+            DOM.lobbyWaiting.classList.add('hidden');
+        });
+
+        document.getElementById('btn-create-room').addEventListener('click', createPvPRoom);
+        document.getElementById('btn-join-room').addEventListener('click', () => {
+            const code = document.getElementById('join-room-code').value.toUpperCase();
+            joinPvPRoom(code);
+        });
+
+        document.getElementById('btn-lobby-back').addEventListener('click', () => {
+            DOM.pvpLobby.classList.add('hidden');
+            DOM.pvpLobby.classList.remove('flex');
+        });
+
+        document.getElementById('btn-cancel-room').addEventListener('click', async () => {
+            if(unsubscribeRoom) unsubscribeRoom();
+            if(currentRoomCode) {
+                // optional: mark room as cancelled
+                await updateDoc(getRoomRef(currentRoomCode), { status: 'finished' }).catch(()=>{});
+            }
+            DOM.lobbyActions.classList.remove('hidden');
+            DOM.lobbyWaiting.classList.add('hidden');
+            DOM.lobbyWaiting.classList.remove('flex');
+        });
+
+        document.getElementById('btn-copy-link').addEventListener('click', () => {
+            const shareInput = document.getElementById('share-link-input');
+            
+            // Nếu đang trong môi trường preview, thông báo cho người dùng biết
+            if (shareInput.value.includes("Môi trường giả lập")) {
+                showToast("Bạn đang ở bản Preview. Hãy nhập mã thủ công!");
+                return;
+            }
+
+            shareInput.select();
+            shareInput.setSelectionRange(0, 99999); // Dành cho thiết bị di động
+            try {
+                // Sử dụng execCommand('copy') để đảm bảo tương thích tốt nhất trong môi trường iFrame
+                document.execCommand('copy');
+                showToast("Đã copy link mời!");
+                
+                // Hiệu ứng đổi màu nút để báo hiệu thành công
+                const btn = document.getElementById('btn-copy-link');
+                const originalText = btn.innerText;
+                btn.innerText = "Đã Copy!";
+                btn.classList.replace('bg-blue-600', 'bg-green-600');
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.classList.replace('bg-green-600', 'bg-blue-600');
+                }, 2000);
+            } catch (err) {
+                showToast("Lỗi: Trình duyệt chặn copy, hãy copy thủ công!");
+            }
+        });
+
+        document.getElementById('btn-return-menu').addEventListener('click', () => {
+            if(unsubscribeRoom) unsubscribeRoom();
+            DOM.endScreen.classList.add('hidden');
+            DOM.endScreen.classList.remove('flex');
+            DOM.mainMenu.classList.remove('hidden');
+        });
+
+        // Initialize App
+        window.addEventListener('load', initAuth);
 
     </script>
 </body>
